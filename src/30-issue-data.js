@@ -93,31 +93,40 @@
     });
   }
 
-  // Editions of the issue's channel, for the dialog's edition selector.
-  // Falls back to just the current edition when the structure is unexpected.
-  function loadEditions(brandId, issueId) {
+  // Brand name, issue name and the issue channel's editions — for the
+  // dialog's edition selector and the download filename. GetPagesInfo's
+  // LayoutObjects do not carry these names, so resolve them here. Note that
+  // GetPublications ignores PublicationIds and returns every brand, so match
+  // on the brand id explicitly. Falls back to empty fields on any surprise.
+  function loadIssueMeta(brandId, issueId) {
+    var empty = { brandName: '', issueName: '', editions: [] };
     return callServer('GetPublications', {
       PublicationIds: [String(brandId)],
       RequestInfo: ['PubChannels', 'Issues', 'Editions'],
     }).then(function (r) {
       var infos = (r && r.Publications) || [];
       for (var i = 0; i < infos.length; i++) {
+        if (String(infos[i].Id) !== String(brandId)) continue;
         var chans = infos[i].PubChannels || [];
         for (var c = 0; c < chans.length; c++) {
           var issues = chans[c].Issues || [];
           for (var s = 0; s < issues.length; s++) {
             if (String(issues[s].Id) === String(issueId)) {
-              return (chans[c].Editions || []).map(function (ed) {
-                return { id: String(ed.Id), name: ed.Name };
-              });
+              return {
+                brandName: infos[i].Name || '',
+                issueName: issues[s].Name || '',
+                editions: (chans[c].Editions || []).map(function (ed) {
+                  return { id: String(ed.Id), name: ed.Name };
+                }),
+              };
             }
           }
         }
       }
-      return [];
+      return empty;
     }).catch(function (e) {
-      console.warn(TAG + ' editions unavailable: ' + e.message);
-      return [];
+      console.warn(TAG + ' issue meta unavailable: ' + e.message);
+      return empty;
     });
   }
 

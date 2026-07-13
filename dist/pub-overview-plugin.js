@@ -225,31 +225,40 @@
     });
   }
 
-  // Editions of the issue's channel, for the dialog's edition selector.
-  // Falls back to just the current edition when the structure is unexpected.
-  function loadEditions(brandId, issueId) {
+  // Brand name, issue name and the issue channel's editions — for the
+  // dialog's edition selector and the download filename. GetPagesInfo's
+  // LayoutObjects do not carry these names, so resolve them here. Note that
+  // GetPublications ignores PublicationIds and returns every brand, so match
+  // on the brand id explicitly. Falls back to empty fields on any surprise.
+  function loadIssueMeta(brandId, issueId) {
+    var empty = { brandName: '', issueName: '', editions: [] };
     return callServer('GetPublications', {
       PublicationIds: [String(brandId)],
       RequestInfo: ['PubChannels', 'Issues', 'Editions'],
     }).then(function (r) {
       var infos = (r && r.Publications) || [];
       for (var i = 0; i < infos.length; i++) {
+        if (String(infos[i].Id) !== String(brandId)) continue;
         var chans = infos[i].PubChannels || [];
         for (var c = 0; c < chans.length; c++) {
           var issues = chans[c].Issues || [];
           for (var s = 0; s < issues.length; s++) {
             if (String(issues[s].Id) === String(issueId)) {
-              return (chans[c].Editions || []).map(function (ed) {
-                return { id: String(ed.Id), name: ed.Name };
-              });
+              return {
+                brandName: infos[i].Name || '',
+                issueName: issues[s].Name || '',
+                editions: (chans[c].Editions || []).map(function (ed) {
+                  return { id: String(ed.Id), name: ed.Name };
+                }),
+              };
             }
           }
         }
       }
-      return [];
+      return empty;
     }).catch(function (e) {
-      console.warn(TAG + ' editions unavailable: ' + e.message);
-      return [];
+      console.warn(TAG + ' issue meta unavailable: ' + e.message);
+      return empty;
     });
   }
 
@@ -523,6 +532,7 @@
 
     var state = {
       model: null,
+      meta: null,
       editions: [],
       cancelled: false,
       exporting: false,
@@ -628,6 +638,12 @@
 
     function renderModel(model) {
       state.model = model;
+      // GetPagesInfo omits brand/issue names; use the ones from loadIssueMeta
+      // once available (survives edition reloads).
+      if (state.meta) {
+        if (state.meta.brandName) model.brandName = state.meta.brandName;
+        if (state.meta.issueName) model.issueName = state.meta.issueName;
+      }
       var withPdf = model.pages.filter(function (p) { return p.outputAvailable; }).length;
       ctxLine.textContent = (model.brandName || 'Brand') + ' / ' + (model.issueName || ('issue ' + model.issueId)) +
         ' — ' + model.pages.length + ' pages, ' + Object.keys(model.layouts).length + ' layouts';
@@ -656,16 +672,24 @@
       });
     }
 
-    // initial load: current edition + edition list
+    // initial load: current edition + issue meta (brand/issue names, editions)
     loadFor(filter.editionId);
-    loadEditions(filter.brandId, filter.issueId).then(function (eds) {
-      state.editions = eds;
+    loadIssueMeta(filter.brandId, filter.issueId).then(function (meta) {
+      state.meta = meta;
+      state.editions = meta.editions;
+      // Names are absent from GetPagesInfo; fold them into the model so the
+      // context line and download filename read properly.
+      if (state.model) {
+        if (meta.brandName) state.model.brandName = meta.brandName;
+        if (meta.issueName) state.model.issueName = meta.issueName;
+        renderModel(state.model);
+      }
       editionSelect.textContent = '';
-      if (!eds.length) {
+      if (!meta.editions.length) {
         editionSelect.appendChild(el('option', { value: filter.editionId || '', text: 'Current edition' }));
         return;
       }
-      eds.forEach(function (ed) {
+      meta.editions.forEach(function (ed) {
         var o = el('option', { value: ed.id, text: ed.name });
         if (String(ed.id) === String(filter.editionId)) o.setAttribute('selected', '');
         editionSelect.appendChild(o);

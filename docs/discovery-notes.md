@@ -88,6 +88,19 @@ Appending `&ww-app=Content Station` makes the cookie session apply →
 HTTP 200, verified real `%PDF-1.4` (cover page was 4.9 MB). Same pattern as the JPG
 page previews the PO app itself loads.
 
+### Brand / issue names
+
+GetPagesInfo's `LayoutObjects` do NOT populate `Publication.Name` or
+`Target.Issue.Name` (both come back empty), so the download filename can't be
+built from the page model alone. Resolve names via `GetPublications`
+(`RequestInfo: ['PubChannels','Issues','Editions']`) instead.
+
+**Gotcha:** GetPublications **ignores `PublicationIds`** and returns every
+brand (10 on this instance). Match the target brand by `Publication.Id`
+explicitly, then walk its `PubChannels[].Issues[]` for the issue and its
+`Editions[]`. Verified: brand 27 → "WW AI Testing", issue 301 → "Issue 001",
+editions North=5 / South=6.
+
 ## 4. Route format (informational — currentFilterSetting() supersedes it)
 
 `https://…/app/#/publication?brandId=27&categoryId=All&issueId=301&editionId=5&stateId=All`

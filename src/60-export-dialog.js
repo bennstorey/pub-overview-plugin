@@ -61,6 +61,7 @@
 
     var state = {
       model: null,
+      meta: null,
       editions: [],
       cancelled: false,
       exporting: false,
@@ -166,6 +167,12 @@
 
     function renderModel(model) {
       state.model = model;
+      // GetPagesInfo omits brand/issue names; use the ones from loadIssueMeta
+      // once available (survives edition reloads).
+      if (state.meta) {
+        if (state.meta.brandName) model.brandName = state.meta.brandName;
+        if (state.meta.issueName) model.issueName = state.meta.issueName;
+      }
       var withPdf = model.pages.filter(function (p) { return p.outputAvailable; }).length;
       ctxLine.textContent = (model.brandName || 'Brand') + ' / ' + (model.issueName || ('issue ' + model.issueId)) +
         ' — ' + model.pages.length + ' pages, ' + Object.keys(model.layouts).length + ' layouts';
@@ -194,16 +201,24 @@
       });
     }
 
-    // initial load: current edition + edition list
+    // initial load: current edition + issue meta (brand/issue names, editions)
     loadFor(filter.editionId);
-    loadEditions(filter.brandId, filter.issueId).then(function (eds) {
-      state.editions = eds;
+    loadIssueMeta(filter.brandId, filter.issueId).then(function (meta) {
+      state.meta = meta;
+      state.editions = meta.editions;
+      // Names are absent from GetPagesInfo; fold them into the model so the
+      // context line and download filename read properly.
+      if (state.model) {
+        if (meta.brandName) state.model.brandName = meta.brandName;
+        if (meta.issueName) state.model.issueName = meta.issueName;
+        renderModel(state.model);
+      }
       editionSelect.textContent = '';
-      if (!eds.length) {
+      if (!meta.editions.length) {
         editionSelect.appendChild(el('option', { value: filter.editionId || '', text: 'Current edition' }));
         return;
       }
-      eds.forEach(function (ed) {
+      meta.editions.forEach(function (ed) {
         var o = el('option', { value: ed.id, text: ed.name });
         if (String(ed.id) === String(filter.editionId)) o.setAttribute('selected', '');
         editionSelect.appendChild(o);
