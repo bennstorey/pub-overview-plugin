@@ -11,6 +11,9 @@ A WoodWing Studio plug-in for the **Publication Overview** application. It adds:
   - Filename: `<Brand> - <Issue> (pages 1-5) (Complete) (North).pdf`
 - **Styling** of the page grid (gear icon in the export dialog):
   - "PRESS" badge on pages whose layout is in a sent-to-press status (configurable)
+  - Diagonal watermark over sent-to-press thumbnails — text and show/hide in the
+    gear; **restyle the look** in the `WATERMARK_CSS` block of
+    `src/70-styling-engine.js` (one clearly-marked, self-contained CSS block)
   - Status color accent bar on every page tile (official workflow status colors)
   - Pulsing outline on overdue pages
   - Grid density control (compact / normal / large)

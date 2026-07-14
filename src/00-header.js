@@ -6,9 +6,11 @@
  *    ('output' renditions, falling back to JPG page previews) into a single
  *    downloadable PDF — entire issue, a page range, filtered by workflow
  *    status and/or edition.
- *  - Styling: "sent to press" badge on page tiles, status color accents,
- *    overdue-deadline pulse and a density control. Pure CSS/DOM decoration,
- *    fully reversible, self-disables if the Studio DOM changes.
+ *  - Styling: "sent to press" badge on page tiles, a diagonal watermark over
+ *    press-status thumbnails, status color accents, overdue-deadline pulse and
+ *    a density control. Pure CSS/DOM decoration, fully reversible, self-disables
+ *    if the Studio DOM changes. (Watermark look is one editable CSS block in
+ *    src/70-styling-engine.js.)
  *
  * Runs inside the Publication Overview child application (same-origin iframe)
  * where the PoUiSdk and the relayed ContentStationSdk globals are available.
@@ -22,7 +24,7 @@
 (function () {
   'use strict';
 
-  var VERSION = '0.1.0';
+  var VERSION = '0.2.0';
   var TAG = '[pub-pdf]';
 
   if (typeof PoUiSdk === 'undefined') {

@@ -6,9 +6,11 @@
  *    ('output' renditions, falling back to JPG page previews) into a single
  *    downloadable PDF — entire issue, a page range, filtered by workflow
  *    status and/or edition.
- *  - Styling: "sent to press" badge on page tiles, status color accents,
- *    overdue-deadline pulse and a density control. Pure CSS/DOM decoration,
- *    fully reversible, self-disables if the Studio DOM changes.
+ *  - Styling: "sent to press" badge on page tiles, a diagonal watermark over
+ *    press-status thumbnails, status color accents, overdue-deadline pulse and
+ *    a density control. Pure CSS/DOM decoration, fully reversible, self-disables
+ *    if the Studio DOM changes. (Watermark look is one editable CSS block in
+ *    src/70-styling-engine.js.)
  *
  * Runs inside the Publication Overview child application (same-origin iframe)
  * where the PoUiSdk and the relayed ContentStationSdk globals are available.
@@ -22,7 +24,7 @@
 (function () {
   'use strict';
 
-  var VERSION = '0.1.0';
+  var VERSION = '0.2.0';
   var TAG = '[pub-pdf]';
 
   if (typeof PoUiSdk === 'undefined') {
@@ -40,6 +42,10 @@
     // Text shown on the badge overlay of pages in a press status.
     badgeLabel: 'PRESS',
     badgeEnabled: true,
+    // Diagonal watermark stamped across the thumbnail of pages in a press
+    // status (uses the same pressStatusNames list). Toggle off to hide it.
+    watermarkEnabled: true,
+    watermarkText: 'SENT TO PRESS',
     // Colored status accent bar on every page tile (uses the official
     // workflow status color).
     accentsEnabled: true,
@@ -566,6 +572,8 @@
     var settings = loadSettings();
     var pressInput = el('input', { type: 'text', value: settings.pressStatusNames.join(', ') });
     var badgeChk = el('input', { type: 'checkbox' }); badgeChk.checked = settings.badgeEnabled;
+    var watermarkChk = el('input', { type: 'checkbox' }); watermarkChk.checked = settings.watermarkEnabled;
+    var watermarkInput = el('input', { type: 'text', value: settings.watermarkText || '' });
     var accentChk = el('input', { type: 'checkbox' }); accentChk.checked = settings.accentsEnabled;
     var overdueChk = el('input', { type: 'checkbox' }); overdueChk.checked = settings.overdueEnabled;
     var densitySel = el('select', {}, ['compact', 'normal', 'large'].map(function (d) {
@@ -575,6 +583,9 @@
     }));
     var settingsBox = el('div', { class: 'ppx-settings' }, [
       el('label', {}, [badgeChk, el('span', { text: 'Badge on pages that are sent to press' })]),
+      el('label', {}, [watermarkChk, el('span', { text: 'Watermark on pages that are sent to press' })]),
+      el('label', {}, [el('span', { text: 'Watermark text:' })]),
+      watermarkInput,
       el('label', {}, [el('span', { text: 'Press status names:' })]),
       pressInput,
       el('label', {}, [accentChk, el('span', { text: 'Status color accent on page tiles' })]),
@@ -584,13 +595,15 @@
     function persistSettings() {
       settings.pressStatusNames = pressInput.value.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
       settings.badgeEnabled = badgeChk.checked;
+      settings.watermarkEnabled = watermarkChk.checked;
+      settings.watermarkText = watermarkInput.value.trim();
       settings.accentsEnabled = accentChk.checked;
       settings.overdueEnabled = overdueChk.checked;
       settings.density = densitySel.value;
       saveSettings(settings);
       stylingRefresh();
     }
-    [pressInput, badgeChk, accentChk, overdueChk, densitySel].forEach(function (input) {
+    [pressInput, badgeChk, watermarkChk, watermarkInput, accentChk, overdueChk, densitySel].forEach(function (input) {
       input.addEventListener('change', persistSettings);
     });
     var gearBtn = el('button', { class: 'ppx-gear', title: 'Styling settings', text: '⚙' });
@@ -786,6 +799,25 @@
     grid: 'po-spread-view',
   };
 
+  // ═══════════════════════════════════════════════════════════════════════
+  //  WATERMARK STYLE — edit this block freely to restyle the overlay.
+  //
+  //  Injected per press-status page tile (pointer-events pass through):
+  //     <div class="ppx-watermark">
+  //       <span class="ppx-watermark-text">SENT TO PRESS</span>
+  //     </div>
+  //  .ppx-watermark is the full-cover container over the thumbnail;
+  //  .ppx-watermark-text is the label (text comes from the watermarkText
+  //  setting). Keep the container's `position/inset/pointer-events` unless
+  //  you know you want otherwise; everything else is yours.
+  // ═══════════════════════════════════════════════════════════════════════
+  var WATERMARK_CSS =
+    '.ppx-watermark{position:absolute;inset:0;z-index:6;display:flex;' +
+      'align-items:center;justify-content:center;overflow:hidden;pointer-events:none}' +
+    '.ppx-watermark-text{transform:rotate(-32deg);font:800 20px/1 sans-serif;' +
+      'letter-spacing:.12em;text-transform:uppercase;color:rgba(192,57,43,.55);' +
+      'border:3px solid rgba(192,57,43,.5);padding:4px 16px;border-radius:4px}';
+
   var STYLING_CSS =
     'po-page-component.ppx-tile{position:relative}' +
     '.ppx-badge{position:absolute;top:8px;right:8px;z-index:5;background:rgba(46,158,60,.92);color:#fff;' +
@@ -795,7 +827,8 @@
     'po-page-component.ppx-overdue{outline:2px solid #c0392b;outline-offset:-2px;animation:ppx-pulse 1.6s ease-in-out infinite}' +
     '@keyframes ppx-pulse{0%,100%{outline-color:rgba(192,57,43,.9)}50%{outline-color:rgba(192,57,43,.25)}}' +
     '[data-ppx-density="compact"] .spread-view{zoom:0.7}' +
-    '[data-ppx-density="large"] .spread-view{zoom:1.35}';
+    '[data-ppx-density="large"] .spread-view{zoom:1.35}' +
+    WATERMARK_CSS;
 
   var styling = (function () {
     var observer = null;
@@ -845,6 +878,23 @@
       if (badge) {
         if (wantBadge) badge.textContent = settings.badgeLabel || 'PRESS';
         else badge.remove();
+      }
+
+      // diagonal watermark (same press-status trigger as the badge)
+      var watermark = tile.querySelector(':scope > .ppx-watermark');
+      var wantWatermark = settings.watermarkEnabled && layout && isPressState(settings, layout.stateName);
+      if (wantWatermark && !watermark) {
+        watermark = document.createElement('div');
+        watermark.className = 'ppx-watermark';
+        watermark.appendChild(document.createElement('span')).className = 'ppx-watermark-text';
+        tile.appendChild(watermark);
+      }
+      if (watermark) {
+        if (wantWatermark) {
+          watermark.firstChild.textContent = settings.watermarkText || 'SENT TO PRESS';
+        } else {
+          watermark.remove();
+        }
       }
 
       // status accent
@@ -910,7 +960,7 @@
       disabled = true;
       if (observer) { observer.disconnect(); observer = null; }
       try {
-        document.querySelectorAll('.ppx-badge,.ppx-accent-bar').forEach(function (n) { n.remove(); });
+        document.querySelectorAll('.ppx-badge,.ppx-accent-bar,.ppx-watermark').forEach(function (n) { n.remove(); });
         document.querySelectorAll('.ppx-overdue').forEach(function (n) { n.classList.remove('ppx-overdue'); });
         var grid = document.querySelector(SELECTORS.grid);
         if (grid) grid.removeAttribute('data-ppx-density');

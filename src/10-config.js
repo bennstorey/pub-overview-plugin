@@ -6,6 +6,10 @@
     // Text shown on the badge overlay of pages in a press status.
     badgeLabel: 'PRESS',
     badgeEnabled: true,
+    // Diagonal watermark stamped across the thumbnail of pages in a press
+    // status (uses the same pressStatusNames list). Toggle off to hide it.
+    watermarkEnabled: true,
+    watermarkText: 'SENT TO PRESS',
     // Colored status accent bar on every page tile (uses the official
     // workflow status color).
     accentsEnabled: true,

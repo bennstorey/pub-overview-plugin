@@ -13,6 +13,25 @@
     grid: 'po-spread-view',
   };
 
+  // ═══════════════════════════════════════════════════════════════════════
+  //  WATERMARK STYLE — edit this block freely to restyle the overlay.
+  //
+  //  Injected per press-status page tile (pointer-events pass through):
+  //     <div class="ppx-watermark">
+  //       <span class="ppx-watermark-text">SENT TO PRESS</span>
+  //     </div>
+  //  .ppx-watermark is the full-cover container over the thumbnail;
+  //  .ppx-watermark-text is the label (text comes from the watermarkText
+  //  setting). Keep the container's `position/inset/pointer-events` unless
+  //  you know you want otherwise; everything else is yours.
+  // ═══════════════════════════════════════════════════════════════════════
+  var WATERMARK_CSS =
+    '.ppx-watermark{position:absolute;inset:0;z-index:6;display:flex;' +
+      'align-items:center;justify-content:center;overflow:hidden;pointer-events:none}' +
+    '.ppx-watermark-text{transform:rotate(-32deg);font:800 20px/1 sans-serif;' +
+      'letter-spacing:.12em;text-transform:uppercase;color:rgba(192,57,43,.55);' +
+      'border:3px solid rgba(192,57,43,.5);padding:4px 16px;border-radius:4px}';
+
   var STYLING_CSS =
     'po-page-component.ppx-tile{position:relative}' +
     '.ppx-badge{position:absolute;top:8px;right:8px;z-index:5;background:rgba(46,158,60,.92);color:#fff;' +
@@ -22,7 +41,8 @@
     'po-page-component.ppx-overdue{outline:2px solid #c0392b;outline-offset:-2px;animation:ppx-pulse 1.6s ease-in-out infinite}' +
     '@keyframes ppx-pulse{0%,100%{outline-color:rgba(192,57,43,.9)}50%{outline-color:rgba(192,57,43,.25)}}' +
     '[data-ppx-density="compact"] .spread-view{zoom:0.7}' +
-    '[data-ppx-density="large"] .spread-view{zoom:1.35}';
+    '[data-ppx-density="large"] .spread-view{zoom:1.35}' +
+    WATERMARK_CSS;
 
   var styling = (function () {
     var observer = null;
@@ -72,6 +92,23 @@
       if (badge) {
         if (wantBadge) badge.textContent = settings.badgeLabel || 'PRESS';
         else badge.remove();
+      }
+
+      // diagonal watermark (same press-status trigger as the badge)
+      var watermark = tile.querySelector(':scope > .ppx-watermark');
+      var wantWatermark = settings.watermarkEnabled && layout && isPressState(settings, layout.stateName);
+      if (wantWatermark && !watermark) {
+        watermark = document.createElement('div');
+        watermark.className = 'ppx-watermark';
+        watermark.appendChild(document.createElement('span')).className = 'ppx-watermark-text';
+        tile.appendChild(watermark);
+      }
+      if (watermark) {
+        if (wantWatermark) {
+          watermark.firstChild.textContent = settings.watermarkText || 'SENT TO PRESS';
+        } else {
+          watermark.remove();
+        }
       }
 
       // status accent
@@ -137,7 +174,7 @@
       disabled = true;
       if (observer) { observer.disconnect(); observer = null; }
       try {
-        document.querySelectorAll('.ppx-badge,.ppx-accent-bar').forEach(function (n) { n.remove(); });
+        document.querySelectorAll('.ppx-badge,.ppx-accent-bar,.ppx-watermark').forEach(function (n) { n.remove(); });
         document.querySelectorAll('.ppx-overdue').forEach(function (n) { n.classList.remove('ppx-overdue'); });
         var grid = document.querySelector(SELECTORS.grid);
         if (grid) grid.removeAttribute('data-ppx-density');

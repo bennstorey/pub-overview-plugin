@@ -95,6 +95,8 @@
     var settings = loadSettings();
     var pressInput = el('input', { type: 'text', value: settings.pressStatusNames.join(', ') });
     var badgeChk = el('input', { type: 'checkbox' }); badgeChk.checked = settings.badgeEnabled;
+    var watermarkChk = el('input', { type: 'checkbox' }); watermarkChk.checked = settings.watermarkEnabled;
+    var watermarkInput = el('input', { type: 'text', value: settings.watermarkText || '' });
     var accentChk = el('input', { type: 'checkbox' }); accentChk.checked = settings.accentsEnabled;
     var overdueChk = el('input', { type: 'checkbox' }); overdueChk.checked = settings.overdueEnabled;
     var densitySel = el('select', {}, ['compact', 'normal', 'large'].map(function (d) {
@@ -104,6 +106,9 @@
     }));
     var settingsBox = el('div', { class: 'ppx-settings' }, [
       el('label', {}, [badgeChk, el('span', { text: 'Badge on pages that are sent to press' })]),
+      el('label', {}, [watermarkChk, el('span', { text: 'Watermark on pages that are sent to press' })]),
+      el('label', {}, [el('span', { text: 'Watermark text:' })]),
+      watermarkInput,
       el('label', {}, [el('span', { text: 'Press status names:' })]),
       pressInput,
       el('label', {}, [accentChk, el('span', { text: 'Status color accent on page tiles' })]),
@@ -113,13 +118,15 @@
     function persistSettings() {
       settings.pressStatusNames = pressInput.value.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
       settings.badgeEnabled = badgeChk.checked;
+      settings.watermarkEnabled = watermarkChk.checked;
+      settings.watermarkText = watermarkInput.value.trim();
       settings.accentsEnabled = accentChk.checked;
       settings.overdueEnabled = overdueChk.checked;
       settings.density = densitySel.value;
       saveSettings(settings);
       stylingRefresh();
     }
-    [pressInput, badgeChk, accentChk, overdueChk, densitySel].forEach(function (input) {
+    [pressInput, badgeChk, watermarkChk, watermarkInput, accentChk, overdueChk, densitySel].forEach(function (input) {
       input.addEventListener('change', persistSettings);
     });
     var gearBtn = el('button', { class: 'ppx-gear', title: 'Styling settings', text: '⚙' });
