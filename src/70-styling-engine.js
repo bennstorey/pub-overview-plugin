@@ -30,16 +30,31 @@
       'align-items:center;justify-content:center;overflow:hidden;pointer-events:none}' +
     '.ppx-watermark-text{transform: rotate(-32deg);font: 800 20px / 1 sans-serif;letter-spacing: .12em;text-align: center;text-transform: uppercase;color: rgba(192, 57, 43, .8);border: 3px solid rgba(192, 57, 43, .8);padding: 11px 16px;border-radius: 4px;background-color: rgba(226, 226, 226, .6);}';
 
+  // ═══════════════════════════════════════════════════════════════════════
+  //  DEADLINE STYLE — edit this block freely to restyle deadline highlights.
+  //
+  //  Two mutually-exclusive classes are toggled on the page tile
+  //  (<po-page-component>), only on non-press pages:
+  //     .ppx-overdue   → hard deadline (Deadline) has passed        → "late"
+  //     .ppx-due-soon  → soft deadline (DeadlineSoft) passed, hard  → "approaching"
+  //                       deadline not yet passed
+  //  "Late" wins if both apply. Defaults: red pulse for late, amber for
+  //  approaching. Everything here is yours to change.
+  // ═══════════════════════════════════════════════════════════════════════
+  var DEADLINE_CSS =
+    'po-page-component.ppx-overdue{outline:2px solid #c0392b;outline-offset:-2px;animation:ppx-pulse 1.6s ease-in-out infinite}' +
+    '@keyframes ppx-pulse{0%,100%{outline-color:rgba(192,57,43,.9)}50%{outline-color:rgba(192,57,43,.25)}}' +
+    'po-page-component.ppx-due-soon{outline:2px solid #e0a800;outline-offset:-2px}';
+
   var STYLING_CSS =
     'po-page-component.ppx-tile{position:relative}' +
     '.ppx-badge{position:absolute;top:8px;right:8px;z-index:5;background:rgba(46,158,60,.92);color:#fff;' +
       'font-size:10px;font-weight:700;letter-spacing:.08em;padding:3px 8px;border-radius:3px;pointer-events:none;' +
       'box-shadow:0 1px 4px rgba(0,0,0,.3)}' +
     '.ppx-accent-bar{position:absolute;left:0;right:0;bottom:0;height:4px;z-index:4;pointer-events:none}' +
-    'po-page-component.ppx-overdue{outline:2px solid #c0392b;outline-offset:-2px;animation:ppx-pulse 1.6s ease-in-out infinite}' +
-    '@keyframes ppx-pulse{0%,100%{outline-color:rgba(192,57,43,.9)}50%{outline-color:rgba(192,57,43,.25)}}' +
     '[data-ppx-density="compact"] .spread-view{zoom:0.7}' +
     '[data-ppx-density="large"] .spread-view{zoom:1.35}' +
+    DEADLINE_CSS +
     WATERMARK_CSS;
 
   var styling = (function () {
@@ -122,13 +137,18 @@
         else bar.remove();
       }
 
-      // overdue pulse
-      var overdue = false;
-      if (settings.overdueEnabled && layout && layout.deadline && !isPressState(settings, layout.stateName)) {
-        var dl = new Date(layout.deadline);
-        overdue = !isNaN(dl.getTime()) && dl.getTime() < Date.now();
+      // deadline highlights (non-press pages only): hard deadline passed =
+      // "late" (wins); else soft deadline passed = "approaching".
+      var late = false, dueSoon = false;
+      if (layout && !isPressState(settings, layout.stateName)) {
+        var now = Date.now();
+        var hard = layout.deadline ? new Date(layout.deadline).getTime() : NaN;
+        var soft = layout.deadlineSoft ? new Date(layout.deadlineSoft).getTime() : NaN;
+        if (settings.overdueEnabled && !isNaN(hard) && hard < now) late = true;
+        else if (settings.dueSoonEnabled && !isNaN(soft) && soft < now) dueSoon = true;
       }
-      tile.classList.toggle('ppx-overdue', overdue);
+      tile.classList.toggle('ppx-overdue', late);
+      tile.classList.toggle('ppx-due-soon', dueSoon);
     }
 
     function pass() {
@@ -173,7 +193,9 @@
       if (observer) { observer.disconnect(); observer = null; }
       try {
         document.querySelectorAll('.ppx-badge,.ppx-accent-bar,.ppx-watermark').forEach(function (n) { n.remove(); });
-        document.querySelectorAll('.ppx-overdue').forEach(function (n) { n.classList.remove('ppx-overdue'); });
+        document.querySelectorAll('.ppx-overdue,.ppx-due-soon').forEach(function (n) {
+          n.classList.remove('ppx-overdue'); n.classList.remove('ppx-due-soon');
+        });
         var grid = document.querySelector(SELECTORS.grid);
         if (grid) grid.removeAttribute('data-ppx-density');
       } catch (e) { /* best effort */ }

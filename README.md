@@ -15,7 +15,10 @@ A WoodWing Studio plug-in for the **Publication Overview** application. It adds:
     gear; **restyle the look** in the `WATERMARK_CSS` block of
     `src/70-styling-engine.js` (one clearly-marked, self-contained CSS block)
   - Status color accent bar on every page tile (official workflow status colors)
-  - Pulsing outline on overdue pages
+  - Deadline highlights on non-press pages — **late** (past the hard `Deadline`,
+    red pulse) and **approaching** (past the soft `DeadlineSoft`, amber); each
+    toggleable in the gear, and restyle the look in the `DEADLINE_CSS` block of
+    `src/70-styling-engine.js`
   - Grid density control (compact / normal / large)
 
 ## Architecture

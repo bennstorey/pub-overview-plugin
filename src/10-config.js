@@ -13,9 +13,12 @@
     // Colored status accent bar on every page tile (uses the official
     // workflow status color).
     accentsEnabled: true,
-    // Pulsing outline on pages whose layout deadline has passed and whose
-    // status is not a press status.
+    // Pulsing red outline on non-press pages whose hard deadline (Deadline)
+    // has passed — "late".
     overdueEnabled: true,
+    // Amber outline on non-press pages whose soft deadline (DeadlineSoft) has
+    // passed but hard deadline has not — "approaching".
+    dueSoonEnabled: true,
     // Page grid density: 'normal' leaves Studio untouched.
     density: 'normal', // 'compact' | 'normal' | 'large'
     // Rendition engine. 'client' merges stored renditions in the browser.

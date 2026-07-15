@@ -7,9 +7,10 @@
  *    downloadable PDF — entire issue, a page range, filtered by workflow
  *    status and/or edition.
  *  - Styling: "sent to press" badge on page tiles, a diagonal watermark over
- *    press-status thumbnails, status color accents, overdue-deadline pulse and
- *    a density control. Pure CSS/DOM decoration, fully reversible, self-disables
- *    if the Studio DOM changes. (Watermark look is one editable CSS block in
+ *    press-status thumbnails, status color accents, late (past hard deadline)
+ *    and approaching (past soft deadline) highlights, and a density control.
+ *    Pure CSS/DOM decoration, fully reversible, self-disables if the Studio DOM
+ *    changes. (Watermark and deadline looks are editable CSS blocks in
  *    src/70-styling-engine.js.)
  *
  * Runs inside the Publication Overview child application (same-origin iframe)
@@ -24,7 +25,7 @@
 (function () {
   'use strict';
 
-  var VERSION = '0.2.0';
+  var VERSION = '0.3.0';
   var TAG = '[pub-pdf]';
 
   if (typeof PoUiSdk === 'undefined') {
@@ -49,9 +50,12 @@
     // Colored status accent bar on every page tile (uses the official
     // workflow status color).
     accentsEnabled: true,
-    // Pulsing outline on pages whose layout deadline has passed and whose
-    // status is not a press status.
+    // Pulsing red outline on non-press pages whose hard deadline (Deadline)
+    // has passed — "late".
     overdueEnabled: true,
+    // Amber outline on non-press pages whose soft deadline (DeadlineSoft) has
+    // passed but hard deadline has not — "approaching".
+    dueSoonEnabled: true,
     // Page grid density: 'normal' leaves Studio untouched.
     density: 'normal', // 'compact' | 'normal' | 'large'
     // Rendition engine. 'client' merges stored renditions in the browser.
@@ -176,7 +180,8 @@
           stateName: st.Name || '',
           stateColor: st.Color ? ('#' + String(st.Color).replace(/^#/, '')) : '',
           lockedBy: lo.LockedBy || '',
-          deadline: null, // filled by loadDeadlines() when styling needs it
+          deadline: null,     // hard deadline, filled by loadDeadlines()
+          deadlineSoft: null, // soft/warning deadline, filled by loadDeadlines()
         };
         if (st.Id && !statesSeen[st.Id]) {
           statesSeen[st.Id] = true;
@@ -208,7 +213,9 @@
   }
 
   // Deadlines are not part of GetPagesInfo's LayoutObjects; fetch them
-  // separately and tolerate failure (styling then simply skips overdue marks).
+  // separately and tolerate failure (styling then simply skips deadline marks).
+  // Deadline = hard deadline ("late"); DeadlineSoft = soft/warning deadline
+  // ("approaching").
   function loadDeadlines(model) {
     return callServer('QueryObjects', {
       FirstEntry: 1, MaxEntries: 500, Hierarchical: false,
@@ -216,13 +223,15 @@
         { Property: 'Type', Operation: '=', Value: 'Layout', __classname__: 'QueryParam' },
         { Property: 'IssueId', Operation: '=', Value: String(model.issueId), __classname__: 'QueryParam' },
       ],
-      MinimalProps: ['ID', 'Deadline'],
+      MinimalProps: ['ID', 'Deadline', 'DeadlineSoft'],
     }).then(function (r) {
       var cols = (r.Columns || []).map(function (c) { return c.Name; });
-      var idIdx = cols.indexOf('ID'), dlIdx = cols.indexOf('Deadline');
+      var idIdx = cols.indexOf('ID'), dlIdx = cols.indexOf('Deadline'), softIdx = cols.indexOf('DeadlineSoft');
       (r.Rows || []).forEach(function (row) {
         var lay = model.layouts[String(row[idIdx])];
-        if (lay && dlIdx >= 0 && row[dlIdx]) lay.deadline = row[dlIdx];
+        if (!lay) return;
+        if (dlIdx >= 0 && row[dlIdx]) lay.deadline = row[dlIdx];
+        if (softIdx >= 0 && row[softIdx]) lay.deadlineSoft = row[softIdx];
       });
       return model;
     }).catch(function (e) {
@@ -576,6 +585,7 @@
     var watermarkInput = el('input', { type: 'text', value: settings.watermarkText || '' });
     var accentChk = el('input', { type: 'checkbox' }); accentChk.checked = settings.accentsEnabled;
     var overdueChk = el('input', { type: 'checkbox' }); overdueChk.checked = settings.overdueEnabled;
+    var dueSoonChk = el('input', { type: 'checkbox' }); dueSoonChk.checked = settings.dueSoonEnabled;
     var densitySel = el('select', {}, ['compact', 'normal', 'large'].map(function (d) {
       var o = el('option', { value: d, text: d });
       if (settings.density === d) o.setAttribute('selected', '');
@@ -589,7 +599,8 @@
       el('label', {}, [el('span', { text: 'Press status names:' })]),
       pressInput,
       el('label', {}, [accentChk, el('span', { text: 'Status color accent on page tiles' })]),
-      el('label', {}, [overdueChk, el('span', { text: 'Highlight overdue pages' })]),
+      el('label', {}, [overdueChk, el('span', { text: 'Highlight late pages (past hard deadline)' })]),
+      el('label', {}, [dueSoonChk, el('span', { text: 'Highlight approaching pages (past soft deadline)' })]),
       el('label', {}, [el('span', { text: 'Grid density:' }), densitySel]),
     ]);
     function persistSettings() {
@@ -599,11 +610,12 @@
       settings.watermarkText = watermarkInput.value.trim();
       settings.accentsEnabled = accentChk.checked;
       settings.overdueEnabled = overdueChk.checked;
+      settings.dueSoonEnabled = dueSoonChk.checked;
       settings.density = densitySel.value;
       saveSettings(settings);
       stylingRefresh();
     }
-    [pressInput, badgeChk, watermarkChk, watermarkInput, accentChk, overdueChk, densitySel].forEach(function (input) {
+    [pressInput, badgeChk, watermarkChk, watermarkInput, accentChk, overdueChk, dueSoonChk, densitySel].forEach(function (input) {
       input.addEventListener('change', persistSettings);
     });
     var gearBtn = el('button', { class: 'ppx-gear', title: 'Styling settings', text: '⚙' });
@@ -816,16 +828,31 @@
       'align-items:center;justify-content:center;overflow:hidden;pointer-events:none}' +
     '.ppx-watermark-text{transform: rotate(-32deg);font: 800 20px / 1 sans-serif;letter-spacing: .12em;text-align: center;text-transform: uppercase;color: rgba(192, 57, 43, .8);border: 3px solid rgba(192, 57, 43, .8);padding: 11px 16px;border-radius: 4px;background-color: rgba(226, 226, 226, .6);}';
 
+  // ═══════════════════════════════════════════════════════════════════════
+  //  DEADLINE STYLE — edit this block freely to restyle deadline highlights.
+  //
+  //  Two mutually-exclusive classes are toggled on the page tile
+  //  (<po-page-component>), only on non-press pages:
+  //     .ppx-overdue   → hard deadline (Deadline) has passed        → "late"
+  //     .ppx-due-soon  → soft deadline (DeadlineSoft) passed, hard  → "approaching"
+  //                       deadline not yet passed
+  //  "Late" wins if both apply. Defaults: red pulse for late, amber for
+  //  approaching. Everything here is yours to change.
+  // ═══════════════════════════════════════════════════════════════════════
+  var DEADLINE_CSS =
+    'po-page-component.ppx-overdue{outline:2px solid #c0392b;outline-offset:-2px;animation:ppx-pulse 1.6s ease-in-out infinite}' +
+    '@keyframes ppx-pulse{0%,100%{outline-color:rgba(192,57,43,.9)}50%{outline-color:rgba(192,57,43,.25)}}' +
+    'po-page-component.ppx-due-soon{outline:2px solid #e0a800;outline-offset:-2px}';
+
   var STYLING_CSS =
     'po-page-component.ppx-tile{position:relative}' +
     '.ppx-badge{position:absolute;top:8px;right:8px;z-index:5;background:rgba(46,158,60,.92);color:#fff;' +
       'font-size:10px;font-weight:700;letter-spacing:.08em;padding:3px 8px;border-radius:3px;pointer-events:none;' +
       'box-shadow:0 1px 4px rgba(0,0,0,.3)}' +
     '.ppx-accent-bar{position:absolute;left:0;right:0;bottom:0;height:4px;z-index:4;pointer-events:none}' +
-    'po-page-component.ppx-overdue{outline:2px solid #c0392b;outline-offset:-2px;animation:ppx-pulse 1.6s ease-in-out infinite}' +
-    '@keyframes ppx-pulse{0%,100%{outline-color:rgba(192,57,43,.9)}50%{outline-color:rgba(192,57,43,.25)}}' +
     '[data-ppx-density="compact"] .spread-view{zoom:0.7}' +
     '[data-ppx-density="large"] .spread-view{zoom:1.35}' +
+    DEADLINE_CSS +
     WATERMARK_CSS;
 
   var styling = (function () {
@@ -908,13 +935,18 @@
         else bar.remove();
       }
 
-      // overdue pulse
-      var overdue = false;
-      if (settings.overdueEnabled && layout && layout.deadline && !isPressState(settings, layout.stateName)) {
-        var dl = new Date(layout.deadline);
-        overdue = !isNaN(dl.getTime()) && dl.getTime() < Date.now();
+      // deadline highlights (non-press pages only): hard deadline passed =
+      // "late" (wins); else soft deadline passed = "approaching".
+      var late = false, dueSoon = false;
+      if (layout && !isPressState(settings, layout.stateName)) {
+        var now = Date.now();
+        var hard = layout.deadline ? new Date(layout.deadline).getTime() : NaN;
+        var soft = layout.deadlineSoft ? new Date(layout.deadlineSoft).getTime() : NaN;
+        if (settings.overdueEnabled && !isNaN(hard) && hard < now) late = true;
+        else if (settings.dueSoonEnabled && !isNaN(soft) && soft < now) dueSoon = true;
       }
-      tile.classList.toggle('ppx-overdue', overdue);
+      tile.classList.toggle('ppx-overdue', late);
+      tile.classList.toggle('ppx-due-soon', dueSoon);
     }
 
     function pass() {
@@ -959,7 +991,9 @@
       if (observer) { observer.disconnect(); observer = null; }
       try {
         document.querySelectorAll('.ppx-badge,.ppx-accent-bar,.ppx-watermark').forEach(function (n) { n.remove(); });
-        document.querySelectorAll('.ppx-overdue').forEach(function (n) { n.classList.remove('ppx-overdue'); });
+        document.querySelectorAll('.ppx-overdue,.ppx-due-soon').forEach(function (n) {
+          n.classList.remove('ppx-overdue'); n.classList.remove('ppx-due-soon');
+        });
         var grid = document.querySelector(SELECTORS.grid);
         if (grid) grid.removeAttribute('data-ppx-density');
       } catch (e) { /* best effort */ }

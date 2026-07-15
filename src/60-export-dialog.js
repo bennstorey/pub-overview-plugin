@@ -99,6 +99,7 @@
     var watermarkInput = el('input', { type: 'text', value: settings.watermarkText || '' });
     var accentChk = el('input', { type: 'checkbox' }); accentChk.checked = settings.accentsEnabled;
     var overdueChk = el('input', { type: 'checkbox' }); overdueChk.checked = settings.overdueEnabled;
+    var dueSoonChk = el('input', { type: 'checkbox' }); dueSoonChk.checked = settings.dueSoonEnabled;
     var densitySel = el('select', {}, ['compact', 'normal', 'large'].map(function (d) {
       var o = el('option', { value: d, text: d });
       if (settings.density === d) o.setAttribute('selected', '');
@@ -112,7 +113,8 @@
       el('label', {}, [el('span', { text: 'Press status names:' })]),
       pressInput,
       el('label', {}, [accentChk, el('span', { text: 'Status color accent on page tiles' })]),
-      el('label', {}, [overdueChk, el('span', { text: 'Highlight overdue pages' })]),
+      el('label', {}, [overdueChk, el('span', { text: 'Highlight late pages (past hard deadline)' })]),
+      el('label', {}, [dueSoonChk, el('span', { text: 'Highlight approaching pages (past soft deadline)' })]),
       el('label', {}, [el('span', { text: 'Grid density:' }), densitySel]),
     ]);
     function persistSettings() {
@@ -122,11 +124,12 @@
       settings.watermarkText = watermarkInput.value.trim();
       settings.accentsEnabled = accentChk.checked;
       settings.overdueEnabled = overdueChk.checked;
+      settings.dueSoonEnabled = dueSoonChk.checked;
       settings.density = densitySel.value;
       saveSettings(settings);
       stylingRefresh();
     }
-    [pressInput, badgeChk, watermarkChk, watermarkInput, accentChk, overdueChk, densitySel].forEach(function (input) {
+    [pressInput, badgeChk, watermarkChk, watermarkInput, accentChk, overdueChk, dueSoonChk, densitySel].forEach(function (input) {
       input.addEventListener('change', persistSettings);
     });
     var gearBtn = el('button', { class: 'ppx-gear', title: 'Styling settings', text: '⚙' });

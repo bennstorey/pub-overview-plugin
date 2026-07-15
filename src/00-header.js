@@ -7,9 +7,10 @@
  *    downloadable PDF — entire issue, a page range, filtered by workflow
  *    status and/or edition.
  *  - Styling: "sent to press" badge on page tiles, a diagonal watermark over
- *    press-status thumbnails, status color accents, overdue-deadline pulse and
- *    a density control. Pure CSS/DOM decoration, fully reversible, self-disables
- *    if the Studio DOM changes. (Watermark look is one editable CSS block in
+ *    press-status thumbnails, status color accents, late (past hard deadline)
+ *    and approaching (past soft deadline) highlights, and a density control.
+ *    Pure CSS/DOM decoration, fully reversible, self-disables if the Studio DOM
+ *    changes. (Watermark and deadline looks are editable CSS blocks in
  *    src/70-styling-engine.js.)
  *
  * Runs inside the Publication Overview child application (same-origin iframe)
@@ -24,7 +25,7 @@
 (function () {
   'use strict';
 
-  var VERSION = '0.2.0';
+  var VERSION = '0.3.0';
   var TAG = '[pub-pdf]';
 
   if (typeof PoUiSdk === 'undefined') {

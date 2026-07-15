@@ -38,7 +38,8 @@
           stateName: st.Name || '',
           stateColor: st.Color ? ('#' + String(st.Color).replace(/^#/, '')) : '',
           lockedBy: lo.LockedBy || '',
-          deadline: null, // filled by loadDeadlines() when styling needs it
+          deadline: null,     // hard deadline, filled by loadDeadlines()
+          deadlineSoft: null, // soft/warning deadline, filled by loadDeadlines()
         };
         if (st.Id && !statesSeen[st.Id]) {
           statesSeen[st.Id] = true;
@@ -70,7 +71,9 @@
   }
 
   // Deadlines are not part of GetPagesInfo's LayoutObjects; fetch them
-  // separately and tolerate failure (styling then simply skips overdue marks).
+  // separately and tolerate failure (styling then simply skips deadline marks).
+  // Deadline = hard deadline ("late"); DeadlineSoft = soft/warning deadline
+  // ("approaching").
   function loadDeadlines(model) {
     return callServer('QueryObjects', {
       FirstEntry: 1, MaxEntries: 500, Hierarchical: false,
@@ -78,13 +81,15 @@
         { Property: 'Type', Operation: '=', Value: 'Layout', __classname__: 'QueryParam' },
         { Property: 'IssueId', Operation: '=', Value: String(model.issueId), __classname__: 'QueryParam' },
       ],
-      MinimalProps: ['ID', 'Deadline'],
+      MinimalProps: ['ID', 'Deadline', 'DeadlineSoft'],
     }).then(function (r) {
       var cols = (r.Columns || []).map(function (c) { return c.Name; });
-      var idIdx = cols.indexOf('ID'), dlIdx = cols.indexOf('Deadline');
+      var idIdx = cols.indexOf('ID'), dlIdx = cols.indexOf('Deadline'), softIdx = cols.indexOf('DeadlineSoft');
       (r.Rows || []).forEach(function (row) {
         var lay = model.layouts[String(row[idIdx])];
-        if (lay && dlIdx >= 0 && row[dlIdx]) lay.deadline = row[dlIdx];
+        if (!lay) return;
+        if (dlIdx >= 0 && row[dlIdx]) lay.deadline = row[dlIdx];
+        if (softIdx >= 0 && row[softIdx]) lay.deadlineSoft = row[softIdx];
       });
       return model;
     }).catch(function (e) {
