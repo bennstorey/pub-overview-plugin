@@ -28,7 +28,7 @@ var SELECTORS = {
 var WATERMARK_CSS =
   '.ppx-watermark{position:absolute;inset:0;z-index:6;display:flex;' +
   'align-items:center;justify-content:center;overflow:hidden;pointer-events:none}' +
-  '.ppx-watermark-text{transform: rotate(-32deg);font: 800 20px / 1 sans-serif;letter-spacing: .12em;text-align: center;text-transform: uppercase;color: rgba(192, 57, 43, .8);border: 3px solid rgba(192, 57, 43, .8);padding: 11px 16px;border-radius: 4px;background-color: rgba(226, 226, 226, .6);}';
+  '.ppx-watermark-text{transform: rotate(-32deg);font: 800 20px / 1 sans-serif;letter-spacing: .12em;text-align: center;text-transform: uppercase;color: rgb(236 30 49 / 80%);border: 3px solid rgb(237 27 6 / 80%);padding: 11px 16px;border-radius: 4px;background-color: rgb(255 255 255 / 83%);}';
 
 // ═══════════════════════════════════════════════════════════════════════
 //  DEADLINE STYLE — edit this block freely to restyle deadline highlights.
